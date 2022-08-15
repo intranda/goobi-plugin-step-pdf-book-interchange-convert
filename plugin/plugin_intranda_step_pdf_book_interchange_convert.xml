@@ -1,0 +1,47 @@
+<config_plugin>
+    <!-- order of configuration is: 
+        1.) project name and step name matches 
+        2.) step name matches and project is * 
+        3.) project name matches and step name is * 
+        4.) project name and step name are * 
+    -->
+    <config>
+        <!-- which projects to use for (can be more then one, otherwise use *) -->
+        <project>*</project>
+        <step>*</step>
+
+        <!-- type of the structure elements to be created from the PDF Table of Contents -->
+        <structureTypePdf>Part</structureTypePdf>
+
+        <!-- type of the structure elements to be created from the Book Interchange Format -->
+        <structureTypeBits>Chapter</structureTypeBits>
+
+        <!-- mapping for the metadata that belongs to the publication aka topstruct (e.g. Monograph or Volume)-->
+        <publicationMapping>
+            <!-- 'value' defines an xpath expression of the current element; 
+                'field' defines a ruleset element to be created that shall receive the value that was read using xpath -->
+            <metadata value="./abc/def/ghi" field="TitleDocMain" />
+            <metadata value="./abc/def/ghi/jkl" field="DocLanguage" />
+            <metadata value="./abc/def/ghi/mno" field="ISBN" />
+
+            <!-- person information is read from xpath expressions in 'firstname' and 'lastname' fields separately
+            the ruleset type to be used for the person is defined as 'role' -->
+            <person firstname="./abc/firstname" lastname="./abc/lastname" role="Author" />
+            <person firstname="./def/firstname" lastname="./def/lastname" role="Editor" />
+        </publicationMapping>
+
+        <!-- mapping for the metadata that belongs to the created structure elements -->
+        <elementMapping>
+            <!-- 'value' defines an xpath expression of the current element; 
+                'field' defines a ruleset element to be created that shall receive the value that was read using xpath -->
+            <metadata value="./abc/def/ghi" field="TitleDocMain" />
+            <metadata value="./abc/def/ghi/jkl" field="DocLanguage" />
+
+            <!-- person information is read from xpath expressions in 'firstname' and 'lastname' fields separately
+            the ruleset type to be used for the person is defined as 'role' -->
+            <person firstname="./abc/firstname" lastname="./abc/lastname" role="Author" />
+            <person firstname="./def/firstname" lastname="./def/lastname" role="Editor" />
+        </elementMapping>
+    </config>
+</config_plugin>
+
