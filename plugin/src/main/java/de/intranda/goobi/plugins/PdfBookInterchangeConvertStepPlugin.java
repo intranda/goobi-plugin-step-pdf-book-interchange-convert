@@ -1,6 +1,6 @@
 package de.intranda.goobi.plugins;
 
-
+import java.io.File;
 
 /**
  * This file is part of a plugin for Goobi - a Workflow tool for the support of mass digitization.
@@ -49,8 +49,13 @@ import org.jdom2.input.SAXBuilder;
 import org.jdom2.xpath.XPathExpression;
 import org.jdom2.xpath.XPathFactory;
 
+import de.intranda.digiverso.pdf.PDFConverter;
+import de.intranda.digiverso.pdf.exception.PDFWriteException;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
+import de.sub.goobi.helper.StorageProvider;
+import de.sub.goobi.helper.StorageProviderInterface;
+import de.sub.goobi.helper.exceptions.DAOException;
 import de.sub.goobi.helper.exceptions.SwapException;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -58,6 +63,13 @@ import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
+import ugh.dl.DigitalDocument;
+import ugh.dl.DocStruct;
+import ugh.dl.DocStructType;
+import ugh.dl.Fileformat;
+import ugh.dl.Prefs;
+import ugh.exceptions.PreferencesException;
+import ugh.exceptions.ReadException;
 
 @PluginImplementation
 @Log4j2
@@ -68,6 +80,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     @Getter
     private Step step;
     private Process process;
+    private Prefs prefs;
     private String structureTypePdf;
     private String structureTypeBits;
     private List<MetadataMapping> publicationMetadata;
@@ -136,6 +149,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         this.step = step;
         this.processId = this.step.getProcessId();
         this.process = this.step.getProzess();
+        this.prefs = process.getRegelsatz().getPreferences();
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
         this.structureTypePdf = myconfig.getString("stuctureTypePdf", null);
@@ -211,24 +225,70 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
 
     @Override
     public PluginReturnValue run() {
+        
         boolean successful = true;
-   
-        // read table of contents
+        // find source folder with pdf and xml
+        Path sourceFolder = null;
+        try {
+            sourceFolder = Paths.get(this.process.getSourceDirectory());
+        
+        StorageProviderInterface SPI = StorageProvider.getInstance();
+        Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
+        if (!SPI.isFileExists(masterFolder)) {
+            SPI.createDirectories(masterFolder);
+        }
+        
+        
+        // TODO put Filters into seperate File
+        // TODO check for emtpy list 
+       Path pdfFile = SPI.listFiles(sourceFolder.toString(), path -> {
+            try {
+                System.out.println("We are here"+ path.getFileName());
+                return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.pdf$");
+                
+            } catch (IOException e) {
+                // if we can't open it we will not add it to the List
+                return false;
+            }
+        }).get(0);
+        
+        
+        Path xmlBitsFile = SPI.listFiles(sourceFolder.toString(), path -> {
+            try {
+                return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.xml$");
+            } catch (IOException e) {
+                // if we can't open it we will not add it to the List
+                return false;
+            }
+        }).get(0);
+        
+        //List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(),"ghostscript");
+       // log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);        
+        Fileformat ff = process.readMetadataFile();
+        DigitalDocument digitalDocument = ff.getDigitalDocument();
+      
+        DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
+        
+        if (baseDocStruct.getType().isAnchor()) {
+            baseDocStruct = baseDocStruct.getAllChildren().get(0);
+        }
+        
+        // use pdf-extraction-lib to read pdf and add structure and elements to pdf
+       // ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles,ff,this.prefs,1,baseDocStruct, this.structureTypeBits);
+                
+        // find a way to determine  if a toc was present
+        
+        // read table of contents ?
         // read values from xml
-            //open xml file
+        // open xml file
         SAXBuilder jdomBuilder = new SAXBuilder();
         jdomBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
         jdomBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
         jdomBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
         Document jdomDocument;
-        Path sourceFolder = null;
-        try {
-            sourceFolder = Paths.get(this.process.getSourceDirectory());
-        } catch (IOException | SwapException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        if (sourceFolder != null && Files.exists(sourceFolder)) {
+        
+       
+        if (xmlBitsFile != null && Files.exists(sourceFolder)) {
             try {
                 jdomDocument = jdomBuilder.build(sourceFolder.toString());
             } catch (JDOMException | IOException e) {
@@ -236,8 +296,20 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 e.printStackTrace();
             }
         }
-        // create pages and images
-
+        }catch(IllegalArgumentException | IOException | SwapException | DAOException ex) {
+                   
+        } catch (PreferencesException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } 
+//        catch (PDFWriteException e1) {
+//            // TODO Auto-generated catch block
+//            e1.printStackTrace();
+//        } 
+        catch (ReadException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
         log("PdfBookInterchangeConvert step plugin executed", LogType.INFO);
         if (!successful) {
             return PluginReturnValue.ERROR;
