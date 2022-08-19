@@ -70,6 +70,7 @@ import ugh.dl.Fileformat;
 import ugh.dl.Prefs;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
+import ugh.exceptions.WriteException;
 
 @PluginImplementation
 @Log4j2
@@ -205,7 +206,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     public String readValue(Document doc, String xpathString) {
         XPathExpression<Object> xpath = XPathFactory.instance().compile(xpathString);
         Object value = xpath.evaluateFirst(doc);
-        
+
         if (value instanceof Element) {
             value = ((Element) value).getTextTrim();
         } else if (value instanceof Attribute) {
@@ -225,90 +226,89 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
 
     @Override
     public PluginReturnValue run() {
-        
+
         boolean successful = true;
         // find source folder with pdf and xml
         Path sourceFolder = null;
         try {
             sourceFolder = Paths.get(this.process.getSourceDirectory());
-        
-        StorageProviderInterface SPI = StorageProvider.getInstance();
-        Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
-        if (!SPI.isFileExists(masterFolder)) {
-            SPI.createDirectories(masterFolder);
-        }
-        
-        
-        // TODO put Filters into seperate File
-        // TODO check for emtpy list 
-       Path pdfFile = SPI.listFiles(sourceFolder.toString(), path -> {
-            try {
-                System.out.println("We are here"+ path.getFileName());
-                return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.pdf$");
-                
-            } catch (IOException e) {
-                // if we can't open it we will not add it to the List
-                return false;
+
+            StorageProviderInterface SPI = StorageProvider.getInstance();
+            Path masterFolder = Paths.get(process.getImagesOrigDirectory(false));
+            if (!SPI.isFileExists(masterFolder)) {
+                SPI.createDirectories(masterFolder);
             }
-        }).get(0);
-        
-        
-        Path xmlBitsFile = SPI.listFiles(sourceFolder.toString(), path -> {
-            try {
-                return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.xml$");
-            } catch (IOException e) {
-                // if we can't open it we will not add it to the List
-                return false;
+
+            // TODO put Filters into seperate File
+            // TODO check for emtpy list 
+            Path pdfFile = SPI.listFiles(sourceFolder.toString(), path -> {
+                try {
+                    return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.pdf$");
+
+                } catch (IOException e) {
+                    // if we can't open it we will not add it to the List
+                    return false;
+                }
+            }).get(0);
+
+            Path xmlBitsFile = SPI.listFiles(sourceFolder.toString(), path -> {
+                try {
+                    return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.xml$");
+                } catch (IOException e) {
+                    // if we can't open it we will not add it to the List
+                    return false;
+                }
+            }).get(0);
+
+            List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(), "ghostscript");
+            log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
+            Fileformat ff = process.readMetadataFile();
+            DigitalDocument digitalDocument = ff.getDigitalDocument();
+
+            DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
+
+            if (baseDocStruct.getType().isAnchor()) {
+                baseDocStruct = baseDocStruct.getAllChildren().get(0);
             }
-        }).get(0);
-        
-        //List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(),"ghostscript");
-       // log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);        
-        Fileformat ff = process.readMetadataFile();
-        DigitalDocument digitalDocument = ff.getDigitalDocument();
-      
-        DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
-        
-        if (baseDocStruct.getType().isAnchor()) {
-            baseDocStruct = baseDocStruct.getAllChildren().get(0);
-        }
-        
-        // use pdf-extraction-lib to read pdf and add structure and elements to pdf
-       // ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles,ff,this.prefs,1,baseDocStruct, this.structureTypeBits);
-                
-        // find a way to determine  if a toc was present
-        
-        // read table of contents ?
-        // read values from xml
-        // open xml file
-        SAXBuilder jdomBuilder = new SAXBuilder();
-        jdomBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        jdomBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        jdomBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-        Document jdomDocument;
-        
-       
-        if (xmlBitsFile != null && Files.exists(sourceFolder)) {
-            try {
-                jdomDocument = jdomBuilder.build(sourceFolder.toString());
-            } catch (JDOMException | IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+
+            // use pdf-extraction-lib to read pdf and add structure and elements to pdf
+            ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
+
+            // find a way to determine  if a toc was present
+
+            // read table of contents ?
+            // read values from xml
+            // open xml file
+            SAXBuilder jdomBuilder = new SAXBuilder();
+            // jdomBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            jdomBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
+            jdomBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+            Document jdomDocument;
+
+            if (xmlBitsFile != null && Files.exists(xmlBitsFile)) {
+                try {
+                    jdomDocument = jdomBuilder.build(xmlBitsFile.toString());
+                } catch (JDOMException | IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
             }
-        }
-        }catch(IllegalArgumentException | IOException | SwapException | DAOException ex) {
-                   
+
+            process.writeMetadataFile(ff);
+        } catch (IllegalArgumentException | IOException | SwapException | DAOException ex) {
+
         } catch (PreferencesException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
-        } 
-//        catch (PDFWriteException e1) {
-//            // TODO Auto-generated catch block
-//            e1.printStackTrace();
-//        } 
-        catch (ReadException e1) {
+        } catch (PDFWriteException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
+        } catch (ReadException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        } catch (WriteException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         }
         log("PdfBookInterchangeConvert step plugin executed", LogType.INFO);
         if (!successful) {
