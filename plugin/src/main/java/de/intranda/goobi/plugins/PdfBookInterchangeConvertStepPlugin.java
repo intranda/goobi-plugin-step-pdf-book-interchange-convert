@@ -32,6 +32,7 @@ import java.util.List;
 
 import org.apache.commons.configuration.HierarchicalConfiguration;
 import org.apache.commons.configuration.SubnodeConfiguration;
+import org.apache.commons.lang3.StringUtils;
 import org.goobi.beans.Step;
 import org.goobi.beans.Process;
 import org.goobi.production.enums.LogType;
@@ -51,6 +52,7 @@ import org.jdom2.xpath.XPathFactory;
 
 import de.intranda.digiverso.pdf.PDFConverter;
 import de.intranda.digiverso.pdf.exception.PDFWriteException;
+import de.intranda.goobi.plugins.model.Book;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
 import de.sub.goobi.helper.StorageProvider;
@@ -88,6 +90,9 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     private List<MetadataMapping> elementMetadata;
     private List<PersonMapping> publicationPersons;
     private List<PersonMapping> elementPersons;
+    private String elementFpagePath;
+    private String elementLPagePath;
+    private String bookPartNodePath;
 
     private int processId;
 
@@ -96,19 +101,26 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     private String returnPath;
 
     private void log(String message, LogType logType) {
+        log(message, logType, true);
+    }
+
+    public String log(String message, LogType logType, boolean log4j) {
 
         String logmessage = "PdfBookInterchangeConvert: " + message;
-        switch (logType) {
-            case INFO:
-                log.info(logmessage + " - ProcessID:" + this.processId);
-                break;
-            case ERROR:
-                log.error(logmessage + " - ProcessID:" + this.processId);
-                break;
+        if (log4j) {
+            switch (logType) {
+                case INFO:
+                    log.info(logmessage + " - ProcessID:" + this.processId);
+                    break;
+                case ERROR:
+                    log.error(logmessage + " - ProcessID:" + this.processId);
+                    break;
+            }
         }
         if (this.processId > 0) {
             Helper.addMessageToProcessLog(step.getProcessId(), logType, logmessage);
         }
+        return logmessage + " - ProcessID:" + this.processId;
     }
 
     private List<MetadataMapping> getMetadataMapping(String mapping, SubnodeConfiguration myconfig) {
@@ -123,6 +135,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             //TODO catch no nocde exception    
         } catch (NullPointerException ex) {
             log("Invalid" + mapping + " - A mandatory argument is missing. Update the configuration file", LogType.ERROR);
+            return null;
         }
         return mappings;
     }
@@ -135,11 +148,13 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 String xpathFirstname = node.getString("@firstname", null);
                 String xpathLastname = node.getString("@lastname", null);
                 String mets = node.getString("@role", null);
-                mappings.add(new PersonMapping(xpathFirstname, xpathLastname, mets));
+                String xpathNode = node.getString("@xpathNode", null); 
+                mappings.add(new PersonMapping(xpathFirstname, xpathLastname, mets, xpathNode));
             }
             //TODO catch no node exception    
         } catch (NullPointerException ex) {
             log("Invalid" + mapping + " - A mandatory argument is missing. Update the configuration file", LogType.ERROR);
+            return null;
         }
         return mappings;
     }
@@ -157,8 +172,15 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         this.structureTypeBits = myconfig.getString("structureTypeBits", null);
         this.publicationMetadata = getMetadataMapping("publicationMapping", myconfig);
         this.publicationPersons = getPersonMapping("publicationMapping", myconfig);
+        this.elementFpagePath = myconfig.getString("//elementMapping/fpage/@xpath", null);
+        this.elementLPagePath = myconfig.getString("//elementMapping/lpage/@xpath", null);
+        if (StringUtils.isBlank(this.elementFpagePath)|| StringUtils.isBlank(this.elementLPagePath)) {
+            log("Invalid elementMapping - fpage and lpage elements are missing!", LogType.ERROR);
+            
+        }
         this.elementMetadata = getMetadataMapping("elementMapping", myconfig);
         this.elementPersons = getPersonMapping("elementMapping", myconfig);
+        this.bookPartNodePath = myconfig.getString("//elementMapping/@xpathNode");
         log("Step plugin initialized", LogType.INFO);
     }
 
@@ -203,27 +225,6 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         return ret != PluginReturnValue.ERROR;
     }
 
-    public String readValue(Document doc, String xpathString) {
-        XPathExpression<Object> xpath = XPathFactory.instance().compile(xpathString);
-        Object value = xpath.evaluateFirst(doc);
-
-        if (value instanceof Element) {
-            value = ((Element) value).getTextTrim();
-        } else if (value instanceof Attribute) {
-            value = ((Attribute) value).getValue();
-        } else if (value instanceof Text) {
-            value = ((Text) value).getText();
-        } else if (value != null && !(value instanceof String)) {
-            value = value.toString();
-        }
-
-        if (value instanceof String) {
-            return (String) value;
-        } else {
-            throw new IllegalArgumentException("Could not read value for Expression: " + xpath);
-        }
-    }
-
     @Override
     public PluginReturnValue run() {
 
@@ -239,29 +240,12 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 SPI.createDirectories(masterFolder);
             }
 
-            // TODO put Filters into seperate File
             // TODO check for emtpy list 
-            Path pdfFile = SPI.listFiles(sourceFolder.toString(), path -> {
-                try {
-                    return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.pdf$");
+            Path pdfFile = FileFilter.getXmlFiles(sourceFolder).get(0);
+            Path xmlBitsFile = FileFilter.getXmlFiles(sourceFolder).get(0);
 
-                } catch (IOException e) {
-                    // if we can't open it we will not add it to the List
-                    return false;
-                }
-            }).get(0);
-
-            Path xmlBitsFile = SPI.listFiles(sourceFolder.toString(), path -> {
-                try {
-                    return !Files.isDirectory(path) && !Files.isHidden(path) && path.getFileName().toString().matches("(?i).*\\.xml$");
-                } catch (IOException e) {
-                    // if we can't open it we will not add it to the List
-                    return false;
-                }
-            }).get(0);
-
-            List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(), "ghostscript");
-            log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
+            //List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(), "ghostscript");
+            //log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
             Fileformat ff = process.readMetadataFile();
             DigitalDocument digitalDocument = ff.getDigitalDocument();
 
@@ -272,44 +256,31 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             }
 
             // use pdf-extraction-lib to read pdf and add structure and elements to pdf
-            ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
+            // ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
 
             // find a way to determine  if a toc was present
 
-            // read table of contents ?
             // read values from xml
-            // open xml file
-            SAXBuilder jdomBuilder = new SAXBuilder();
-            // jdomBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-            jdomBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
-            jdomBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-            Document jdomDocument;
-
-            if (xmlBitsFile != null && Files.exists(xmlBitsFile)) {
-                try {
-                    jdomDocument = jdomBuilder.build(xmlBitsFile.toString());
-                } catch (JDOMException | IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }
-
-            process.writeMetadataFile(ff);
+            BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
+            Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
+            //process.writeMetadataFile(ff);
         } catch (IllegalArgumentException | IOException | SwapException | DAOException ex) {
 
         } catch (PreferencesException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
-        } catch (PDFWriteException e1) {
+        } // catch (PDFWriteException e1) {
+          //   // TODO Auto-generated catch block
+          //   e1.printStackTrace();
+          //    } 
+        catch (ReadException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
-        } catch (ReadException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        } catch (WriteException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+        } 
+//        catch (WriteException e) {
+//            // TODO Auto-generated catch block
+//            e.printStackTrace();
+//        }
         log("PdfBookInterchangeConvert step plugin executed", LogType.INFO);
         if (!successful) {
             return PluginReturnValue.ERROR;
@@ -335,6 +306,8 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         private String xpathLastname;
         @NonNull
         private String mets;
+        @NonNull
+        private String xpathNode;
     }
 
 }
