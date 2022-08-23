@@ -1,47 +1,63 @@
 <config_plugin>
-    <!-- order of configuration is: 
-        1.) project name and step name matches 
-        2.) step name matches and project is * 
-        3.) project name matches and step name is * 
-        4.) project name and step name are * 
-    -->
-    <config>
-        <!-- which projects to use for (can be more then one, otherwise use *) -->
-        <project>*</project>
-        <step>*</step>
+	<!-- order of configuration is: 1.) project name and step name matches 2.) 
+		step name matches and project is * 3.) project name matches and step name 
+		is * 4.) project name and step name are * -->
+	<config>
+		<!-- which projects to use for (can be more then one, otherwise use *) -->
+		<project>*</project>
+		<step>*</step>
 
-        <!-- type of the structure elements to be created from the PDF Table of Contents -->
-        <structureTypePdf>Part</structureTypePdf>
+		<!-- type of the structure elements to be created from the PDF Table of 
+			Contents -->
+		<structureTypePdf>Part</structureTypePdf>
 
-        <!-- type of the structure elements to be created from the Book Interchange Format -->
-        <structureTypeBits>Chapter</structureTypeBits>
+		<!-- type of the structure elements to be created from the Book Interchange 
+			Format -->
+		<structureTypeBits>Chapter</structureTypeBits>
 
-        <!-- mapping for the metadata that belongs to the publication aka topstruct (e.g. Monograph or Volume)-->
-        <publicationMapping>
-            <!-- 'value' defines an xpath expression of the current element; 
-                'field' defines a ruleset element to be created that shall receive the value that was read using xpath -->
-            <metadata value="./abc/def/ghi" field="TitleDocMain" />
-            <metadata value="./abc/def/ghi/jkl" field="DocLanguage" />
-            <metadata value="./abc/def/ghi/mno" field="ISBN" />
+		<!-- mapping for the metadata that belongs to the publication aka topstruct 
+			(e.g. Monograph or Volume) -->
 
-            <!-- person information is read from xpath expressions in 'firstname' and 'lastname' fields separately
-            the ruleset type to be used for the person is defined as 'role' -->
-            <person firstname="./abc/firstname" lastname="./abc/lastname" role="Author" />
-            <person firstname="./def/firstname" lastname="./def/lastname" role="Editor" />
-        </publicationMapping>
+		<publicationMapping>
+			<!-- 'value' defines an xpath expression of the current element; 'field' 
+				defines a ruleset element to be created that shall receive the value that 
+				was read using xpath -->
 
-        <!-- mapping for the metadata that belongs to the created structure elements -->
-        <elementMapping>
-            <!-- 'value' defines an xpath expression of the current element; 
-                'field' defines a ruleset element to be created that shall receive the value that was read using xpath -->
-            <metadata value="./abc/def/ghi" field="TitleDocMain" />
-            <metadata value="./abc/def/ghi/jkl" field="DocLanguage" />
+			<metadata
+				value="./book/book-meta/book-title-group/book-title"
+				field="TitleDocMain" />
+			<metadata value="./book/book-meta/isbn" field="ISBN" />
+			<metadata value="./book/book-meta/isbn2" field="ISBN" />
 
-            <!-- person information is read from xpath expressions in 'firstname' and 'lastname' fields separately
-            the ruleset type to be used for the person is defined as 'role' -->
-            <person firstname="./abc/firstname" lastname="./abc/lastname" role="Author" />
-            <person firstname="./def/firstname" lastname="./def/lastname" role="Editor" />
-        </elementMapping>
-    </config>
+			<!-- person information is read from xpath expressions in 'firstname' 
+				and 'lastname' fields separately the ruleset type to be used for the person 
+				is defined as 'role' -->
+			<person
+				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='author']"
+				firstname="./given-names" lastname="./surname" role="Author" />
+			<person
+				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='editor']"
+				firstname="./given-names" lastname="./surname" role="Editor" />
+
+		</publicationMapping>
+
+		<!-- mapping for the metadata that belongs to the created structure elements -->
+		<elementMapping
+			xpathNode="./book/book-body/book-part/book-part-meta">
+			<!-- 'value' defines an xpath expression of the current element; 'field' 
+				defines a ruleset element to be created that shall receive the value that 
+				was read using xpath -->
+			<metadata value="//title-group/title" field="TitleDocMain" />
+			<!-- <metadata value="./abc/def/ghi/jkl" field="DocLanguage" /> -->
+			<!-- person information is read from xpath expressions in 'firstname' 
+				and 'lastname' fields separately the ruleset type to be used for the person 
+				is defined as 'role' -->
+			<person xpathNode="//name[@content-type='author']"
+				firstname="./given-names" lastname="./surname" role="Author" />
+			<person xpathNode="//name[@content-type='editor']"
+				firstname="./given-names" lastname="./surname" role="Editor" />
+			<lpage xpath="./lpage" />
+			<fpage xpath="./fpage" />
+		</elementMapping>
+	</config>
 </config_plugin>
-
