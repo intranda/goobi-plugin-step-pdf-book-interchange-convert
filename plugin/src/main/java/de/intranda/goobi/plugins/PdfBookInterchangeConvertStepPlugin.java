@@ -27,6 +27,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
@@ -41,17 +42,7 @@ import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
-import org.jdom2.Attribute;
-import org.jdom2.Document;
-import org.jdom2.Element;
-import org.jdom2.JDOMException;
-import org.jdom2.Text;
-import org.jdom2.input.SAXBuilder;
-import org.jdom2.xpath.XPathExpression;
-import org.jdom2.xpath.XPathFactory;
 
-import de.intranda.digiverso.pdf.PDFConverter;
-import de.intranda.digiverso.pdf.exception.PDFWriteException;
 import de.intranda.goobi.plugins.model.Book;
 import de.sub.goobi.config.ConfigPlugins;
 import de.sub.goobi.helper.Helper;
@@ -67,11 +58,13 @@ import lombok.extern.log4j.Log4j2;
 import net.xeoh.plugins.base.annotations.PluginImplementation;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
-import ugh.dl.DocStructType;
 import ugh.dl.Fileformat;
 import ugh.dl.Prefs;
+import ugh.exceptions.MetadataTypeNotAllowedException;
 import ugh.exceptions.PreferencesException;
 import ugh.exceptions.ReadException;
+import ugh.exceptions.TypeNotAllowedAsChildException;
+import ugh.exceptions.TypeNotAllowedForParentException;
 import ugh.exceptions.WriteException;
 
 @PluginImplementation
@@ -241,41 +234,59 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             }
 
             // TODO check for emtpy list 
-            Path pdfFile = FileFilter.getXmlFiles(sourceFolder).get(0);
+            Path pdfFile = FileFilter.getPdfFiles(sourceFolder).get(0);
             Path xmlBitsFile = FileFilter.getXmlFiles(sourceFolder).get(0);
-
+            File folder = new File(masterFolder.toString());
+            List<File> imageFiles = new ArrayList<File>();
+            imageFiles.addAll(Arrays.asList(folder.listFiles()));
+           
             //List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(), "ghostscript");
             //log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
             Fileformat ff = process.readMetadataFile();
             DigitalDocument digitalDocument = ff.getDigitalDocument();
-
+            DocumentManager manager = new DocumentManager(ff, structureTypeBits, imageFiles, this.prefs);
+            BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
+            Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
+            ff = manager.mapBookToMets(book);
+            //ff = manager.mapBookToMetsWithToc(book);
             DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
 
             if (baseDocStruct.getType().isAnchor()) {
                 baseDocStruct = baseDocStruct.getAllChildren().get(0);
             }
 
-            // use pdf-extraction-lib to read pdf and add structure and elements to pdf
-            // ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
+            //use pdf-extraction-lib to read pdf and add structure and elements to pdf
+            //ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
 
             // find a way to determine  if a toc was present
 
             // read values from xml
-            BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
-            Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
-            //process.writeMetadataFile(ff);
+            
+            // Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
+           // process.writeMetadataFile(ff);
         } catch (IllegalArgumentException | IOException | SwapException | DAOException ex) {
 
         } catch (PreferencesException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         } // catch (PDFWriteException e1) {
-          //   // TODO Auto-generated catch block
-          //   e1.printStackTrace();
-          //    } 
+             // TODO Auto-generated catch block
+//             e1.printStackTrace();
+//              } 
         catch (ReadException e1) {
             // TODO Auto-generated catch block
             e1.printStackTrace();
+        } catch (MetadataTypeNotAllowedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } catch (TypeNotAllowedAsChildException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        } 
+        
+        catch (TypeNotAllowedForParentException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
         } 
 //        catch (WriteException e) {
 //            // TODO Auto-generated catch block
