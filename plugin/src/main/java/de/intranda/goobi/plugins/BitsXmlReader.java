@@ -20,9 +20,9 @@ import de.intranda.goobi.plugins.PdfBookInterchangeConvertStepPlugin.MetadataMap
 import de.intranda.goobi.plugins.PdfBookInterchangeConvertStepPlugin.PersonMapping;
 import de.intranda.goobi.plugins.model.Book;
 import de.intranda.goobi.plugins.model.BookPart;
-import de.intranda.goobi.plugins.model.Metadata;
+import de.intranda.goobi.plugins.model.ParsedMetadata;
 import de.intranda.goobi.plugins.model.MetadataElement;
-import de.intranda.goobi.plugins.model.Person;
+import de.intranda.goobi.plugins.model.ParsedPerson;
 
 public class BitsXmlReader {
     private Book book;
@@ -62,15 +62,15 @@ public class BitsXmlReader {
         Book result = new Book();
         // read TopStruct Metadata
         List<MetadataElement> bookMetadata = readMetada(publicationMetadata, jdomDocument);
-        List<Person> bookPersons = readPersons(publicationPersons, jdomDocument);
-        result.setMetadata(new Metadata(bookPersons, bookMetadata));
+        List<ParsedPerson> bookPersons = readPersons(publicationPersons, jdomDocument);
+        result.setMetadata(new ParsedMetadata(bookPersons, bookMetadata));
         
         XPathExpression<Object> bookPartXpathExpr = this.xpathFactory.compile(this.bookPartXpath);
         List<Object> bookPartNodeObjects = bookPartXpathExpr.evaluate(jdomDocument);
         for (Object bookPartNode : bookPartNodeObjects) {
             List<MetadataElement> bookPartMetadataElements = readMetada(elementMetadata, bookPartNode);
-            List<Person> bookPartPersons = readPersons(elementPersons, bookPartNode);
-            Metadata bookPartMetadata = new Metadata(bookPartPersons, bookPartMetadataElements);
+            List<ParsedPerson> bookPartPersons = readPersons(elementPersons, bookPartNode);
+            ParsedMetadata bookPartMetadata = new ParsedMetadata(bookPartPersons, bookPartMetadataElements);
             String lpage = readFirstValue(lpageXpath, bookPartNode);
             String fpage = readFirstValue(fpageXpath, bookPartNode);
             
@@ -96,8 +96,8 @@ public class BitsXmlReader {
         return metadataElements;
     }
 
-    private List<Person> readPersons(List<PersonMapping> personMappings, Object source) {
-        List <Person> persons = new ArrayList<>();
+    private List<ParsedPerson> readPersons(List<PersonMapping> personMappings, Object source) {
+        List <ParsedPerson> persons = new ArrayList<>();
         for (PersonMapping personMapping : personMappings) {
             XPathExpression<Object> XpathExpr = this.xpathFactory.compile(personMapping.getXpathNode());
             List<Object> personNodeObjects = XpathExpr.evaluate(source);
@@ -105,7 +105,7 @@ public class BitsXmlReader {
                 XPathExpression<Object> firstnameXpathExpr = this.xpathFactory.compile(personMapping.getXpathFirstname());
                 String firstname = readFirstValue (personMapping.getXpathFirstname(), personNodeObject);
                 String lastname  = readFirstValue (personMapping.getXpathLastname(), personNodeObject);
-                persons.add(new Person(personMapping.getMets(), firstname, lastname));
+                persons.add(new ParsedPerson(personMapping.getMets(), firstname, lastname));
             }
         }
         return persons;

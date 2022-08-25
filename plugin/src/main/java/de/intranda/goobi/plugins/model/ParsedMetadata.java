@@ -8,7 +8,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class Metadata {
-    private List<Person> persons = new ArrayList<>();
+public class ParsedMetadata {
+    private List<ParsedPerson> persons = new ArrayList<>();
     private List<MetadataElement> metadata = new ArrayList<>();
 }

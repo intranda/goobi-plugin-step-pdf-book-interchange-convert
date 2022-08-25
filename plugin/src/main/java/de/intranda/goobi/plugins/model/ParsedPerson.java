@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @AllArgsConstructor
-public class Person {
+public class ParsedPerson {
     private String mets;
     private String firstName;
     private String lastName;

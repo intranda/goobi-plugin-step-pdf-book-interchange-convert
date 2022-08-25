@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class Book {
-    private Metadata metadata;
+    private ParsedMetadata metadata;
     private List<BookPart> bookParts = new ArrayList<>();
     
     public void addBookPart(BookPart part) {
