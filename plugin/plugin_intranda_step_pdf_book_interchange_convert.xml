@@ -37,7 +37,7 @@
 				firstname="./given-names" lastname="./surname" role="Author" />
 			<person
 				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='editor']"
-				firstname="./given-names" lastname="./surname" role="Editor" />
+				firstname="./given-names" lastname="./surname" role="Author" />
 
 		</publicationMapping>
 
@@ -47,15 +47,15 @@
 			<!-- 'value' defines an xpath expression of the current element; 'field' 
 				defines a ruleset element to be created that shall receive the value that 
 				was read using xpath -->
-			<metadata value="//title-group/title" field="TitleDocMain" />
+			<metadata value="./title-group/title" field="TitleDocMain" />
 			<!-- <metadata value="./abc/def/ghi/jkl" field="DocLanguage" /> -->
 			<!-- person information is read from xpath expressions in 'firstname' 
 				and 'lastname' fields separately the ruleset type to be used for the person 
 				is defined as 'role' -->
-			<person xpathNode="//name[@content-type='author']"
+			<person xpathNode=".//name[@content-type='author']"
 				firstname="./given-names" lastname="./surname" role="Author" />
-			<person xpathNode="//name[@content-type='editor']"
-				firstname="./given-names" lastname="./surname" role="Editor" />
+			<person xpathNode=".//name[@content-type='editor']"
+				firstname="./given-names" lastname="./surname" role="Author" />
 			<lpage xpath="./lpage" />
 			<fpage xpath="./fpage" />
 		</elementMapping>
