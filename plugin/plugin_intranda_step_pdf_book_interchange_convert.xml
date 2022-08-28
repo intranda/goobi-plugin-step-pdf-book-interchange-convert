@@ -38,7 +38,6 @@
 			<person
 				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='editor']"
 				firstname="./given-names" lastname="./surname" role="Author" />
-
 		</publicationMapping>
 
 		<!-- mapping for the metadata that belongs to the created structure elements -->

@@ -247,8 +247,8 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             DocumentManager manager = new DocumentManager(ff, structureTypeBits, imageFiles, this.prefs);
             BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
             Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
-            ff = manager.mapBookToMets(book);
-            //ff = manager.mapBookToMetsWithToc(book);
+            //ff = manager.mapBookToMets(book);
+            ff = manager.mapBookToMetsWithToc(book);
             DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
 
             if (baseDocStruct.getType().isAnchor()) {
@@ -284,10 +284,10 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             e.printStackTrace();
         } 
         
-        catch (TypeNotAllowedForParentException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } 
+//        catch (TypeNotAllowedForParentException e) {
+//            // TODO Auto-generated catch block
+//            e.printStackTrace();
+//        } 
 //        catch (WriteException e) {
 //            // TODO Auto-generated catch block
 //            e.printStackTrace();

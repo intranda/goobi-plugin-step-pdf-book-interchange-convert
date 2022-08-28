@@ -1,9 +1,11 @@
 package de.intranda.goobi.plugins;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.goobi.beans.Process;
 import org.goobi.production.enums.LogType;
@@ -45,6 +47,7 @@ public class DocumentManager {
     private DocStructType childType;
     private List<File> imageFiles;
     private PdfBookInterchangeConvertStepPlugin plugin;
+    private HashMap<Integer, List<DocstructPageMapping>> pageMapping = new  HashMap<Integer, List<DocstructPageMapping>>();
 
 
     public DocumentManager(Fileformat fileformat, String childType, List<File> imageFiles, Prefs prefs) {
@@ -71,18 +74,39 @@ public class DocumentManager {
     public Fileformat mapBookToMetsWithToc (Book book) throws MetadataTypeNotAllowedException, TypeNotAllowedAsChildException {
        // addMetadata(logical, book.getMetadata());
         //logical.getAllChildrenByTypeAndMetadataType(this.childType.getName(), "*");
-        createPageMapping(childType.getName(), logical, null);
+        populatePageMapping(childType.getName(), logical, null);
         return null;
     }
     
-    public HashMap<Integer, List<DocstructPageMapping>> createPageMapping (String childType, DocStruct ds, HashMap<Integer, List<DocstructPageMapping>> PageMapping) {
-       List<DocStruct> children =  logical.getAllChildrenByTypeAndMetadataType(childType, "*");
+    public void populatePageMapping (String childType, DocStruct ds, HashMap<Integer, List<DocstructPageMapping>> PageMapping) {
+        List<DocStruct> children =  ds
+                .getAllChildrenByTypeAndMetadataType(childType, "*");
+       if (children == null)
+           return;
        for (DocStruct child : children) {
            List<Reference> refs = child.getAllToReferences("logical_physical");
-           //TODO add logic to read PageNumbers
-           //createPageMapping(childType, child, PageMapping);
+           List<Integer> pageNumbers = new ArrayList<Integer>();
+           for (Reference ref: refs) {
+               DocStruct dspage = ref.getTarget();
+               List<? extends Metadata> physPage = dspage.getAllMetadataByType(this.prefs.getMetadataTypeByName("physPageNumber"));
+               List<Integer> pages = physPage.stream().map(metadata -> Integer.parseInt(metadata.getValue())).collect(Collectors.toList());
+               pageNumbers.addAll(pages);
+           }
+           if (pageNumbers.isEmpty()) {
+               continue;
+           }
+           Collections.sort(pageNumbers);
+           DocstructPageMapping dspageMapping = new DocstructPageMapping(child,pageNumbers.get(0), pageNumbers.get(pageNumbers.size()-1));
+           List<DocstructPageMapping> dspageMappings = pageMapping.get(pageNumbers.get(0));
+           if (dspageMappings == null) {
+               dspageMappings= new ArrayList<DocstructPageMapping>();
+               pageMapping.put(pageNumbers.get(0), dspageMappings);
+           }
+           dspageMappings.add(dspageMapping);
+           populatePageMapping(childType, child, PageMapping);
        }
-       return null;
+       ds.getAdmId();
+       return;
     }
     
     public Fileformat mapBookToMets(Book book) throws MetadataTypeNotAllowedException, TypeNotAllowedAsChildException, TypeNotAllowedForParentException {
