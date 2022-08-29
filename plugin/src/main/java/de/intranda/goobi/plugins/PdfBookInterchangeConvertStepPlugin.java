@@ -244,7 +244,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             //log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
             Fileformat ff = process.readMetadataFile();
             DigitalDocument digitalDocument = ff.getDigitalDocument();
-            DocumentManager manager = new DocumentManager(ff, structureTypeBits, imageFiles, this.prefs);
+            DocumentManager manager = new DocumentManager(ff, structureTypeBits, structureTypePdf, imageFiles, this.prefs, this);
             BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
             Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
             //ff = manager.mapBookToMets(book);
@@ -263,7 +263,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
             // read values from xml
             
             // Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
-           // process.writeMetadataFile(ff);
+            process.writeMetadataFile(ff);
         } catch (IllegalArgumentException | IOException | SwapException | DAOException ex) {
 
         } catch (PreferencesException e1) {
@@ -288,10 +288,10 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
 //            // TODO Auto-generated catch block
 //            e.printStackTrace();
 //        } 
-//        catch (WriteException e) {
-//            // TODO Auto-generated catch block
-//            e.printStackTrace();
-//        }
+        catch (WriteException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
         log("PdfBookInterchangeConvert step plugin executed", LogType.INFO);
         if (!successful) {
             return PluginReturnValue.ERROR;
