@@ -28,11 +28,11 @@ import de.intranda.goobi.plugins.model.ParsedPerson;
 public class BitsXmlReader {
     private Book book;
     private Document jdomDocument;
-    private XPathFactory xpathFactory = XPathFactory.instance();
-    private String bookPartXpath;
+    private static XPathFactory xpathFactory = XPathFactory.instance();
+    private XPathExpression<Object> bookPartXpath;
     private PdfBookInterchangeConvertStepPlugin plugin;
 
-    public BitsXmlReader(Path xmlBitsFile, String bookPartXpath, PdfBookInterchangeConvertStepPlugin plugin) throws JDOMException, IOException {
+    public BitsXmlReader(Path xmlBitsFile, XPathExpression<Object> bookPartXpath, PdfBookInterchangeConvertStepPlugin plugin) throws JDOMException, IOException {
         SAXBuilder jdomBuilder = new SAXBuilder();
         this.bookPartXpath = bookPartXpath;
         this.plugin = plugin;
@@ -54,14 +54,14 @@ public class BitsXmlReader {
      * @return
      */
     public Book readXml(List<MetadataMapping> publicationMetadata, List<PersonMapping> publicationPersons, List<MetadataMapping> elementMetadata,
-            List<PersonMapping> elementPersons, String fpageXpath, String lpageXpath) throws IllegalArgumentException {
+            List<PersonMapping> elementPersons,  XPathExpression<Object> fpageXpath,  XPathExpression<Object> lpageXpath) throws IllegalArgumentException {
         Book result = new Book();
         // read TopStruct Metadata
         List<MetadataElement> bookMetadata = readMetada(publicationMetadata, jdomDocument);
         List<ParsedPerson> bookPersons = readPersons(publicationPersons, jdomDocument);
         result.setMetadata(new ParsedMetadata(bookPersons, bookMetadata));
 
-        XPathExpression<Object> bookPartXpathExpr = this.xpathFactory.compile(this.bookPartXpath);
+        XPathExpression<Object> bookPartXpathExpr = this.bookPartXpath;
         List<Object> bookPartNodeObjects = bookPartXpathExpr.evaluate(jdomDocument);
         int NoMappingPossibleCounter = 0;
         for (Object bookPartNode : bookPartNodeObjects) {
@@ -87,7 +87,7 @@ public class BitsXmlReader {
     private List<MetadataElement> readMetada(List<MetadataMapping> metadaMappings, Object source) {
         List<MetadataElement> metadataElements = new ArrayList<>();
         for (MetadataMapping metadataMapping : metadaMappings) {
-            XPathExpression<Object> XpathExpr = this.xpathFactory.compile(metadataMapping.getXpath());
+            XPathExpression<Object> XpathExpr = metadataMapping.getXpath();
             List<Object> metadataObjects = XpathExpr.evaluate(source);
             List<String> readValues = readValues(metadataObjects);
             for (String readValue : readValues) {
@@ -100,10 +100,10 @@ public class BitsXmlReader {
     private List<ParsedPerson> readPersons(List<PersonMapping> personMappings, Object source) {
         List<ParsedPerson> persons = new ArrayList<>();
         for (PersonMapping personMapping : personMappings) {
-            XPathExpression<Object> XpathExpr = this.xpathFactory.compile(personMapping.getXpathNode());
+            XPathExpression<Object> XpathExpr = personMapping.getXpathNode();
             List<Object> personNodeObjects = XpathExpr.evaluate(source);
             for (Object personNodeObject : personNodeObjects) {
-                XPathExpression<Object> firstnameXpathExpr = this.xpathFactory.compile(personMapping.getXpathFirstname());
+                XPathExpression<Object> firstnameXpathExpr = personMapping.getXpathFirstname();
                 String firstname = readFirstValue(personMapping.getXpathFirstname(), personNodeObject);
                 String lastname = readFirstValue(personMapping.getXpathLastname(), personNodeObject);
                 persons.add(new ParsedPerson(personMapping.getMets(), firstname, lastname));
@@ -112,14 +112,17 @@ public class BitsXmlReader {
         return persons;
     }
 
-    private String readFirstValue(String xpathString, Object source) {
-        XPathExpression<Object> nameXpathExpr = this.xpathFactory.compile(xpathString);
-        List<Object> Objects = nameXpathExpr.evaluate(source);
+    private String readFirstValue(XPathExpression<Object> xpathExpression, Object source) {
+        List<Object> Objects = xpathExpression.evaluate(source);
         List<String> readValues = readValues(Objects);
         if (readValues.size() >= 1) {
             return readValues.get(0);
         }
         return "";
+    }
+    
+    public static XPathExpression<Object>  compileXpath (String expression) throws IllegalArgumentException, NullPointerException {
+        return xpathFactory.compile(expression);
     }
 
     private List<String> readValues(List<Object> elements) {

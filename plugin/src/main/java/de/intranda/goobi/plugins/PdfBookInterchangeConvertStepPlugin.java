@@ -43,6 +43,7 @@ import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
 import org.jdom2.JDOMException;
+import org.jdom2.xpath.XPathExpression;
 
 import de.intranda.goobi.plugins.model.Book;
 import de.sub.goobi.config.ConfigPlugins;
@@ -84,9 +85,9 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     private List<MetadataMapping> elementMetadata;
     private List<PersonMapping> publicationPersons;
     private List<PersonMapping> elementPersons;
-    private String elementFpagePath;
-    private String elementLPagePath;
-    private String bookPartNodePath;
+    private XPathExpression<Object> elementFpagePath;
+    private XPathExpression<Object> elementLPagePath;
+    private XPathExpression<Object> bookPartNodePath;
 
     private int processId;
 
@@ -125,7 +126,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         try {
             List<HierarchicalConfiguration> mappingsNodes = myconfig.configurationsAt("//" + mapping + "/metadata");
             for (HierarchicalConfiguration node : mappingsNodes) {
-                String xpath = node.getString("@value", null);
+                XPathExpression<Object> xpath =  BitsXmlReader.compileXpath(node.getString("@value", null));
                 String mets = node.getString("@field", null);
                 mappings.add(new MetadataMapping(xpath, mets));
             }
@@ -142,10 +143,10 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         try {
             List<HierarchicalConfiguration> mappingsNodes = myconfig.configurationsAt("//" + mapping + "/person");
             for (HierarchicalConfiguration node : mappingsNodes) {
-                String xpathFirstname = node.getString("@firstname", null);
-                String xpathLastname = node.getString("@lastname", null);
+                XPathExpression<Object> xpathFirstname = BitsXmlReader.compileXpath(node.getString("@firstname", null));
+                XPathExpression<Object> xpathLastname = BitsXmlReader.compileXpath(node.getString("@lastname", null));
                 String mets = node.getString("@role", null);
-                String xpathNode = node.getString("@xpathNode", null);
+                XPathExpression<Object> xpathNode = BitsXmlReader.compileXpath(node.getString("@xpathNode", null));
                 mappings.add(new PersonMapping(xpathFirstname, xpathLastname, mets, xpathNode));
             }
             //TODO catch no node exception    
@@ -169,15 +170,11 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         this.structureTypeBits = myconfig.getString("structureTypeBits", null);
         this.publicationMetadata = getMetadataMapping("publicationMapping", myconfig);
         this.publicationPersons = getPersonMapping("publicationMapping", myconfig);
-        this.elementFpagePath = myconfig.getString("//elementMapping/fpage/@xpath", null);
-        this.elementLPagePath = myconfig.getString("//elementMapping/lpage/@xpath", null);
-        if (StringUtils.isBlank(this.elementFpagePath) || StringUtils.isBlank(this.elementLPagePath)) {
-            log("Invalid elementMapping - fpage and lpage elements are missing!", LogType.ERROR);
-
-        }
+        this.elementFpagePath = BitsXmlReader.compileXpath(myconfig.getString("//elementMapping/fpage/@xpath", null));
+        this.elementLPagePath = BitsXmlReader.compileXpath(myconfig.getString("//elementMapping/lpage/@xpath", null));
         this.elementMetadata = getMetadataMapping("elementMapping", myconfig);
         this.elementPersons = getPersonMapping("elementMapping", myconfig);
-        this.bookPartNodePath = myconfig.getString("//elementMapping/@xpathNode");
+        this.bookPartNodePath = BitsXmlReader.compileXpath( myconfig.getString("//elementMapping/@xpathNode"));
         log("Step plugin initialized", LogType.INFO);
     }
 
@@ -291,7 +288,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     @AllArgsConstructor
     public class MetadataMapping {
         @NonNull
-        private String xpath;
+        private XPathExpression<Object> xpath;
         @NonNull
         private String mets;
     }
@@ -300,13 +297,13 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
     @AllArgsConstructor
     public class PersonMapping {
         @NonNull
-        private String xpathFirstname;
+        private XPathExpression<Object> xpathFirstname;
         @NonNull
-        private String xpathLastname;
+        private XPathExpression<Object> xpathLastname;
         @NonNull
         private String mets;
         @NonNull
-        private String xpathNode;
+        private XPathExpression<Object> xpathNode;
     }
 
 }
