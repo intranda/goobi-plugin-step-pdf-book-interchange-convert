@@ -22,6 +22,12 @@ public class FileFilter {
             return false;
         }
     }
+    
+    public static List<Path>getImageFiles(Path folder) {
+        return SPI.listFiles(folder.toString(), path -> {
+            return regexFileFilter(path, "(?i).*\\.tiff$|.*\\.jpg$|.*\\.tiff$|.*\\.tif$");
+        });
+    }
 
     public static List<Path> getPdfFiles(Path folder) {
         return SPI.listFiles(folder.toString(), path -> {
