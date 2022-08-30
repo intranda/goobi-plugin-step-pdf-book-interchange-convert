@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
+import org.goobi.production.enums.LogType;
 import org.jdom2.Attribute;
 import org.jdom2.Document;
 import org.jdom2.Element;
@@ -29,27 +30,21 @@ public class BitsXmlReader {
     private Document jdomDocument;
     private XPathFactory xpathFactory = XPathFactory.instance();
     private String bookPartXpath;
+    private PdfBookInterchangeConvertStepPlugin plugin;
 
-    public BitsXmlReader(Path xmlBitsFile, String bookPartXpath) {
+    public BitsXmlReader(Path xmlBitsFile, String bookPartXpath, PdfBookInterchangeConvertStepPlugin plugin) throws JDOMException, IOException {
         SAXBuilder jdomBuilder = new SAXBuilder();
         this.bookPartXpath = bookPartXpath;
-        // jdomBuilder.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-        // jdomBuilder.setFeature("http://xml.org/sax/features/external-general-entities", false);
-        // jdomBuilder.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-
+        this.plugin = plugin;
+        // the bits-xml -files use doctype declaration and external general entities!
         if (xmlBitsFile != null && Files.exists(xmlBitsFile)) {
-            try {
-                this.jdomDocument = jdomBuilder.build(xmlBitsFile.toString());
-            } catch (JDOMException | IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            this.jdomDocument = jdomBuilder.build(xmlBitsFile.toString());
         }
     }
-    
-    
+
     /**
      * Reads the Metadata from the Bits-XML-File and returns a Book Object
+     * 
      * @param publicationMetadata List with metadata mappings of elements for the TopStruct that shall be read
      * @param publicationPersons List with person metadata mappings of elements for the TopStruct that shall be read
      * @param elementMetadata List with metadata mapping elements for childs of the TopStruct that shall be read
@@ -58,33 +53,39 @@ public class BitsXmlReader {
      * @param lpageXpath xpath that specifies the path to the lpage-Element
      * @return
      */
-    public Book readXml(List<MetadataMapping> publicationMetadata, List<PersonMapping> publicationPersons, List<MetadataMapping> elementMetadata,List<PersonMapping> elementPersons, String fpageXpath, String lpageXpath ) {
+    public Book readXml(List<MetadataMapping> publicationMetadata, List<PersonMapping> publicationPersons, List<MetadataMapping> elementMetadata,
+            List<PersonMapping> elementPersons, String fpageXpath, String lpageXpath) throws IllegalArgumentException {
         Book result = new Book();
         // read TopStruct Metadata
         List<MetadataElement> bookMetadata = readMetada(publicationMetadata, jdomDocument);
         List<ParsedPerson> bookPersons = readPersons(publicationPersons, jdomDocument);
         result.setMetadata(new ParsedMetadata(bookPersons, bookMetadata));
-        
+
         XPathExpression<Object> bookPartXpathExpr = this.xpathFactory.compile(this.bookPartXpath);
         List<Object> bookPartNodeObjects = bookPartXpathExpr.evaluate(jdomDocument);
+        int NoMappingPossibleCounter = 0;
         for (Object bookPartNode : bookPartNodeObjects) {
             List<MetadataElement> bookPartMetadataElements = readMetada(elementMetadata, bookPartNode);
             List<ParsedPerson> bookPartPersons = readPersons(elementPersons, bookPartNode);
             ParsedMetadata bookPartMetadata = new ParsedMetadata(bookPartPersons, bookPartMetadataElements);
             String lpage = readFirstValue(lpageXpath, bookPartNode);
             String fpage = readFirstValue(fpageXpath, bookPartNode);
-            
+
             //TODO add Error Message on failure!
-            if (StringUtils.isNotBlank(fpage)&& StringUtils.isNotBlank(lpage)) {
+            if (StringUtils.isNotBlank(fpage) && StringUtils.isNotBlank(lpage)) {
                 result.addBookPart(new BookPart(bookPartMetadata, Integer.parseInt(fpage.trim()), Integer.parseInt(lpage.trim())));
-            }          
+            } else {
+                NoMappingPossibleCounter++;
+            }
         }
-        
+        if (NoMappingPossibleCounter > 0) {
+            this.plugin.log("There were "+ NoMappingPossibleCounter +" bookPart elements without lpage or fpage element. The metadata of these Elements could not be mapped to the structure!",LogType.ERROR,false);
+        }
         return result;
     }
-    
+
     private List<MetadataElement> readMetada(List<MetadataMapping> metadaMappings, Object source) {
-        List<MetadataElement> metadataElements= new ArrayList<>();
+        List<MetadataElement> metadataElements = new ArrayList<>();
         for (MetadataMapping metadataMapping : metadaMappings) {
             XPathExpression<Object> XpathExpr = this.xpathFactory.compile(metadataMapping.getXpath());
             List<Object> metadataObjects = XpathExpr.evaluate(source);
@@ -97,25 +98,25 @@ public class BitsXmlReader {
     }
 
     private List<ParsedPerson> readPersons(List<PersonMapping> personMappings, Object source) {
-        List <ParsedPerson> persons = new ArrayList<>();
+        List<ParsedPerson> persons = new ArrayList<>();
         for (PersonMapping personMapping : personMappings) {
             XPathExpression<Object> XpathExpr = this.xpathFactory.compile(personMapping.getXpathNode());
             List<Object> personNodeObjects = XpathExpr.evaluate(source);
-            for (Object personNodeObject: personNodeObjects  ) {
+            for (Object personNodeObject : personNodeObjects) {
                 XPathExpression<Object> firstnameXpathExpr = this.xpathFactory.compile(personMapping.getXpathFirstname());
-                String firstname = readFirstValue (personMapping.getXpathFirstname(), personNodeObject);
-                String lastname  = readFirstValue (personMapping.getXpathLastname(), personNodeObject);
+                String firstname = readFirstValue(personMapping.getXpathFirstname(), personNodeObject);
+                String lastname = readFirstValue(personMapping.getXpathLastname(), personNodeObject);
                 persons.add(new ParsedPerson(personMapping.getMets(), firstname, lastname));
             }
         }
         return persons;
     }
-    
-    private String readFirstValue (String xpathString, Object source) {
+
+    private String readFirstValue(String xpathString, Object source) {
         XPathExpression<Object> nameXpathExpr = this.xpathFactory.compile(xpathString);
         List<Object> Objects = nameXpathExpr.evaluate(source);
         List<String> readValues = readValues(Objects);
-        if (readValues.size()>=1) {
+        if (readValues.size() >= 1) {
             return readValues.get(0);
         }
         return "";
@@ -134,7 +135,7 @@ public class BitsXmlReader {
                 val = val.toString();
             }
             if (val instanceof String) {
-                readValues.add((String)val);
+                readValues.add((String) val);
             }
         }
         return readValues;
