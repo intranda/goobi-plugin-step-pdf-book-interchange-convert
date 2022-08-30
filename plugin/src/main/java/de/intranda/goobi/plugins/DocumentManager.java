@@ -1,6 +1,7 @@
 package de.intranda.goobi.plugins;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,45 +47,43 @@ public class DocumentManager {
     private DocStruct physical;
     private Process process;
     private Prefs prefs;
-    private DocStructType childType;
+    private DocStructType bitsChildType;
     private DocStructType pdfChildType;
     private List<String> overrideMetadaTypes = new ArrayList<String>(Arrays.asList("TitleDocMain"));
-    private List<File> imageFiles;
+    private List<Path> imageFiles;
     private PdfBookInterchangeConvertStepPlugin plugin;
     private HashMap<Integer, List<DocstructPageMapping>> pageMapping = new HashMap<Integer, List<DocstructPageMapping>>();
 
-    public DocumentManager(Fileformat fileformat, String childType, String pdfChildType, List<File> imageFiles, Prefs prefs,PdfBookInterchangeConvertStepPlugin plugin ) {
+    public DocumentManager(Fileformat fileformat, String bitsChildType, String pdfChildType, List<Path> imageFiles, Prefs prefs,
+            PdfBookInterchangeConvertStepPlugin plugin) throws PreferencesException {
         this.plugin = plugin;
         this.imageFiles = imageFiles;
         Collections.sort(this.imageFiles);
-        try {
+       
             this.fileformat = fileformat;
             this.prefs = prefs;
-            this.childType = this.prefs.getDocStrctTypeByName(childType);
+            this.bitsChildType = this.prefs.getDocStrctTypeByName(bitsChildType);
             this.pdfChildType = this.prefs.getDocStrctTypeByName(pdfChildType);
             this.digitalDocument = this.fileformat.getDigitalDocument();
             this.logical = this.digitalDocument.getLogicalDocStruct();
             this.physical = this.digitalDocument.getPhysicalDocStruct();
-        } catch (PreferencesException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
+
     }
 
-    public Fileformat mapBookToMetsWithToc(Book book) throws MetadataTypeNotAllowedException, TypeNotAllowedAsChildException {
-        addMetadata(logical, book.getMetadata(),true);
-        populatePageMapping(childType.getName(), logical, null);
-        if (!pageMapping.isEmpty()) {
-            //TODO add logic here
-            MapToOrCreateElement(logical,book.getBookParts());
+    public Fileformat mapBookToMets(Book book) {
+        addMetadata(logical, book.getMetadata(), true);
+        List<DocStruct> children = logical.getAllChildrenByTypeAndMetadataType(pdfChildType.getName(), "*");
+        populatePageMapping(children, null);
+        if (children==null || pageMapping.isEmpty()) {
+            plugin.log("No Element with physical pages detected", LogType.INFO, false);
+            createElementsAddMetadata(logical, book.getBookParts(), true);
         } else {
-            plugin.log("No Element with physical pages detected", LogType.ERROR, false);
+            MapToOrCreateElement(logical, book.getBookParts());
         }
         return this.fileformat;
     }
 
-    public void populatePageMapping(String childType, DocStruct ds, HashMap<Integer, List<DocstructPageMapping>> PageMapping) {
-        List<DocStruct> children = ds.getAllChildrenByTypeAndMetadataType(childType, "*");
+    private void populatePageMapping(List<DocStruct> children, HashMap<Integer, List<DocstructPageMapping>> PageMapping) {
         if (children == null)
             return;
         for (DocStruct child : children) {
@@ -107,35 +106,25 @@ public class DocumentManager {
                 pageMapping.put(pageNumbers.get(0), dspageMappings);
             }
             dspageMappings.add(dspageMapping);
-            populatePageMapping(childType, child, PageMapping);
+            List<DocStruct> grandChildren = child.getAllChildrenByTypeAndMetadataType(this.pdfChildType.getName(), "*");
+            populatePageMapping(grandChildren, PageMapping);
         }
-        ds.getAdmId();
-        return;
-    }
-
-    public Fileformat mapBookToMets(Book book)
-            throws MetadataTypeNotAllowedException, TypeNotAllowedAsChildException, TypeNotAllowedForParentException {
-        addMetadata(logical, book.getMetadata(),true);
-        if (logical.getAllChildrenByTypeAndMetadataType(this.childType.getName(), "*") != null) {
-
-        }
-        createElementsAddMetadata(logical, book.getBookParts(),true);
-        return this.fileformat;
     }
 
     private void createElementsAddMetadata(DocStruct ds, List<BookPart> bookParts, boolean rekursive) {
         for (BookPart bookPart : bookParts) {
             DocStruct child = null;
             try {
-            child = this.digitalDocument.createDocStruct(this.childType);
-            addMetadata(child, bookPart.getMetadata(),false);
-            linkImageFiles(child, bookPart.getFirstPage(), bookPart.getLastPage());
-            ds.addChild(child);
+                child = this.digitalDocument.createDocStruct(this.bitsChildType);
+                addMetadata(child, bookPart.getMetadata(), false);
+                linkImageFiles(child, bookPart.getFirstPage(), bookPart.getLastPage());
+                ds.addChild(child);
             } catch (TypeNotAllowedForParentException ex) {
-                plugin.log("Type not allowed for parent. Couldn't create DocStruct. Please update the rule set!",LogType.ERROR, false);
+                plugin.log("Type not allowed for parent. Couldn't create DocStruct. Please update the rule set!", LogType.ERROR, false);
                 continue;
             } catch (TypeNotAllowedAsChildException e) {
-                plugin.log("Type not allowed as child. Couldn't add created DocStruct to parent Element. Please update the rule set!",LogType.ERROR, false);
+                plugin.log("Type not allowed as child. Couldn't add created DocStruct to parent element. Please update the rule set!", LogType.ERROR,
+                        false);
                 continue;
             }
             if (rekursive && bookPart.getBookParts().size() > 0) {
@@ -144,7 +133,7 @@ public class DocumentManager {
         }
     }
 
-    private void MapToOrCreateElement(DocStruct parent,List<BookPart> bookParts) {
+    private void MapToOrCreateElement(DocStruct parent, List<BookPart> bookParts) {
         for (BookPart bookPart : bookParts) {
             List<DocstructPageMapping> dsWithSameStartpage = pageMapping.get(bookPart.getFirstPage());
             DocStruct ds = null;
@@ -161,12 +150,14 @@ public class DocumentManager {
                 ArrayList<BookPart> unmatchedBookPart = new ArrayList<BookPart>();
                 unmatchedBookPart.add(bookPart);
                 createElementsAddMetadata(parent, unmatchedBookPart, false);
-                
+
             } else {
+                // if a metadata file can not be opened by goobi, this call may be the cause
+                ds.setType(bitsChildType);
                 addMetadata(ds, bookPart.getMetadata(), true);
             }
-            
-            if (bookPart.getBookParts().size()>0) {
+
+            if (bookPart.getBookParts().size() > 0) {
                 MapToOrCreateElement(ds, bookPart.getBookParts());
             }
         }
@@ -181,7 +172,8 @@ public class DocumentManager {
                     if (md == null) {
                         md = new Metadata(prefs.getMetadataTypeByName(element.getMets()));
                     } else {
-                        plugin.log("The following "+ element.getMets()+" was overriden: "+md.getValue()+ " with: "+ element.getValue(), LogType.INFO, false );
+                        plugin.log("The following " + element.getMets() + " was overriden: " + md.getValue() + " with: " + element.getValue(),
+                                LogType.INFO, false);
                     }
                     md.setValue(element.getValue());
                 } else {
@@ -199,10 +191,10 @@ public class DocumentManager {
         }
         for (ParsedPerson person : metadata.getPersons()) {
             try {
-            Person p = new Person(prefs.getMetadataTypeByName(person.getMets()));
-            p.setFirstname(person.getFirstName());
-            p.setLastname(person.getLastName());
-           
+                Person p = new Person(prefs.getMetadataTypeByName(person.getMets()));
+                p.setFirstname(person.getFirstName());
+                p.setLastname(person.getLastName());
+
                 ds.addPerson(p);
             } catch (Exception ex) {
                 plugin.log(
@@ -213,7 +205,6 @@ public class DocumentManager {
     }
 
     private void linkImageFiles(DocStruct ds, int firstPage, int lastPage) {
-        StorageProviderInterface storageProvider = StorageProvider.getInstance();
         for (int currentPage = firstPage; currentPage <= lastPage; currentPage++) {
             if (!addPage(ds, this.imageFiles.get(currentPage - 1), currentPage)) {
                 plugin.log("Couldn't add Page to Structure", LogType.ERROR, false);
@@ -229,7 +220,7 @@ public class DocumentManager {
      * @param imageFile
      * @return true if successful
      */
-    private boolean addPage(DocStruct ds, File imageFile, int PageCount) {
+    private boolean addPage(DocStruct ds, Path imageFile, int PageCount) {
         try {
             DocStructType newPage = prefs.getDocStrctTypeByName("page");
             DocStruct dsPage = digitalDocument.createDocStruct(newPage);
@@ -252,7 +243,7 @@ public class DocumentManager {
             // image name
             ContentFile cf = new ContentFile();
 
-            cf.setLocation("file://" + imageFile.getName());
+            cf.setLocation("file://" + imageFile.toFile().getName());
 
             dsPage.addContentFile(cf);
             return true;
@@ -263,22 +254,6 @@ public class DocumentManager {
             plugin.log("Error creating page - Metadata type not allowed", LogType.ERROR, false);
             return false;
         }
-    }
-
-    /**
-     * Returns true if the DocStruct-element allows to append this metadata type
-     * 
-     * @param ds
-     * @param elementType
-     * @return
-     */
-    private boolean isAllowedElement(DocStruct ds, String elementType) {
-        for (MetadataType metadataType : ds.getType().getAllMetadataTypes()) {
-            if (metadataType.getName().equals(elementType)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -303,9 +278,7 @@ public class DocumentManager {
     @AllArgsConstructor
     public class DocstructPageMapping {
         private DocStruct ds;
-        @NonNull
         private int firstPage;
-        @NonNull
         private int lastPage;
     }
 }
