@@ -7,27 +7,28 @@
 		<project>*</project>
 		<step>*</step>
 
-		<!-- type of the structure elements to be created from the PDF Table of 
-			Contents -->
-		<structureTypePdf>Part</structureTypePdf>
+		<!-- type of the structure elements that were created from the pdf table 
+			of contents by the pdf-extraction plugin -->
+		<structureTypePdf>Chapter</structureTypePdf>
 
 		<!-- type of the structure elements to be created from the Book Interchange 
-			Format -->
-		<structureTypeBits>Chapter</structureTypeBits>
+			Format or Type of the elements that had their metadata updated -->
+		<structureTypeBits>Retpahc</structureTypeBits>
 
 		<!-- mapping for the metadata that belongs to the publication aka topstruct 
 			(e.g. Monograph or Volume) -->
 
 		<publicationMapping>
+
 			<!-- 'value' defines an xpath expression of the current element; 'field' 
 				defines a ruleset element to be created that shall receive the value that 
 				was read using xpath -->
-
 			<metadata
 				value="./book/book-meta/book-title-group/book-title"
 				field="TitleDocMain" />
+			<metadata value="./book/book-meta/book-title-group/subtitle"
+				field="TitleDocSub1" />
 			<metadata value="./book/book-meta/isbn" field="ISBN" />
-			<metadata value="./book/book-meta/isbn2" field="ISBN" />
 
 			<!-- person information is read from xpath expressions in 'firstname' 
 				and 'lastname' fields separately the ruleset type to be used for the person 
@@ -37,24 +38,33 @@
 				firstname="./given-names" lastname="./surname" role="Author" />
 			<person
 				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='editor']"
-				firstname="./given-names" lastname="./surname" role="Author" />
+				firstname="./given-names" lastname="./surname" role="Editor" />
 		</publicationMapping>
 
-		<!-- mapping for the metadata that belongs to the created structure elements -->
+		<!-- mapping for the metadata that belongs to the created structure elements 
+			the Attribute xpathNode should be used to specify the xml-elements that have 
+			the wanted metadata in the case of bitsxml-files this could be //book-part-meta 
+			for example the xpath-expression of the metadata and person elements must 
+			should be relative to this selected node. This means they have to start with 
+			a "." -->
+
 		<elementMapping
 			xpathNode="./book/book-body/book-part/book-part-meta">
 			<!-- 'value' defines an xpath expression of the current element; 'field' 
 				defines a ruleset element to be created that shall receive the value that 
 				was read using xpath -->
 			<metadata value="./title-group/title" field="TitleDocMain" />
+			<metadata value="./title-group/subtitle"
+				field="TitleDocSub1" />
 			<!-- <metadata value="./abc/def/ghi/jkl" field="DocLanguage" /> -->
 			<!-- person information is read from xpath expressions in 'firstname' 
-				and 'lastname' fields separately the ruleset type to be used for the person 
-				is defined as 'role' -->
+				and 'lastname' note that the xpath expressions in firstname and lastname 
+				are relative to the element selected by the path specified by the attribute 
+				xpathNode the ruleset type to be used for the person is defined as 'role' -->
 			<person xpathNode=".//name[@content-type='author']"
 				firstname="./given-names" lastname="./surname" role="Author" />
 			<person xpathNode=".//name[@content-type='editor']"
-				firstname="./given-names" lastname="./surname" role="Author" />
+				firstname="./given-names" lastname="./surname" role="Editor" />
 			<lpage xpath="./lpage" />
 			<fpage xpath="./fpage" />
 		</elementMapping>
