@@ -42,6 +42,7 @@ import org.goobi.production.enums.PluginReturnValue;
 import org.goobi.production.enums.PluginType;
 import org.goobi.production.enums.StepReturnValue;
 import org.goobi.production.plugin.interfaces.IStepPluginVersion2;
+import org.jdom2.JDOMException;
 
 import de.intranda.goobi.plugins.model.Book;
 import de.sub.goobi.config.ConfigPlugins;
@@ -108,6 +109,9 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 case ERROR:
                     log.error(logmessage + " - ProcessID:" + this.processId);
                     break;
+                default:
+                    log.info(logmessage + " - ProcessID:" + this.processId);
+                    break;
             }
         }
         if (this.processId > 0) {
@@ -141,7 +145,7 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 String xpathFirstname = node.getString("@firstname", null);
                 String xpathLastname = node.getString("@lastname", null);
                 String mets = node.getString("@role", null);
-                String xpathNode = node.getString("@xpathNode", null); 
+                String xpathNode = node.getString("@xpathNode", null);
                 mappings.add(new PersonMapping(xpathFirstname, xpathLastname, mets, xpathNode));
             }
             //TODO catch no node exception    
@@ -161,15 +165,15 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
         this.prefs = process.getRegelsatz().getPreferences();
         // read parameters from correct block in configuration file
         SubnodeConfiguration myconfig = ConfigPlugins.getProjectAndStepConfig(title, step);
-        this.structureTypePdf = myconfig.getString("stuctureTypePdf", null);
+        this.structureTypePdf = myconfig.getString("structureTypePdf", null);
         this.structureTypeBits = myconfig.getString("structureTypeBits", null);
         this.publicationMetadata = getMetadataMapping("publicationMapping", myconfig);
         this.publicationPersons = getPersonMapping("publicationMapping", myconfig);
         this.elementFpagePath = myconfig.getString("//elementMapping/fpage/@xpath", null);
         this.elementLPagePath = myconfig.getString("//elementMapping/lpage/@xpath", null);
-        if (StringUtils.isBlank(this.elementFpagePath)|| StringUtils.isBlank(this.elementLPagePath)) {
+        if (StringUtils.isBlank(this.elementFpagePath) || StringUtils.isBlank(this.elementLPagePath)) {
             log("Invalid elementMapping - fpage and lpage elements are missing!", LogType.ERROR);
-            
+
         }
         this.elementMetadata = getMetadataMapping("elementMapping", myconfig);
         this.elementPersons = getPersonMapping("elementMapping", myconfig);
@@ -233,65 +237,49 @@ public class PdfBookInterchangeConvertStepPlugin implements IStepPluginVersion2 
                 SPI.createDirectories(masterFolder);
             }
 
-            // TODO check for emtpy list 
-            Path pdfFile = FileFilter.getPdfFiles(sourceFolder).get(0);
-            Path xmlBitsFile = FileFilter.getXmlFiles(sourceFolder).get(0);
-            File folder = new File(masterFolder.toString());
-            List<File> imageFiles = new ArrayList<File>();
-            imageFiles.addAll(Arrays.asList(folder.listFiles()));
-           
-            //List<File> imageFiles = PDFConverter.writeImages(pdfFile.toFile(), masterFolder.toFile(), "ghostscript");
-            //log("Created " + imageFiles.size() + " TIFF files in " + masterFolder, LogType.DEBUG);
+            // TODO check for emtpy list
+            Path xmlBitsFile = null;            
+            List<Path> xmlFiles = FileFilter.getXmlFiles(sourceFolder);
+            if (xmlFiles.size() == 1) {
+                xmlBitsFile = xmlFiles.get(0);
+            }
+
+            if (xmlBitsFile == null) {
+                log("No or more than one XML-File in the source folder!", LogType.ERROR);
+                return PluginReturnValue.ERROR;
+            }
+            
+            // TODO remove !!
+            List<Path> imageFiles = FileFilter.getImageFiles(masterFolder);
+            if (imageFiles.size()<1) {
+                log("No image files in the master folder!", LogType.ERROR);
+                return PluginReturnValue.ERROR;
+            }
+            
             Fileformat ff = process.readMetadataFile();
             DigitalDocument digitalDocument = ff.getDigitalDocument();
-            DocumentManager manager = new DocumentManager(ff, structureTypeBits, structureTypePdf, imageFiles, this.prefs, this);
-            BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath);
-            Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
-            //ff = manager.mapBookToMets(book);
-            ff = manager.mapBookToMetsWithToc(book);
             DocStruct baseDocStruct = digitalDocument.getLogicalDocStruct();
 
             if (baseDocStruct.getType().isAnchor()) {
                 baseDocStruct = baseDocStruct.getAllChildren().get(0);
             }
-
-            //use pdf-extraction-lib to read pdf and add structure and elements to pdf
-            //ff = PDFConverter.writeFileformat(pdfFile.toFile(), imageFiles, ff, this.prefs, 1, baseDocStruct, this.structureTypeBits);
-
-            // find a way to determine  if a toc was present
-
+                        
             // read values from xml
-            
+            BitsXmlReader reader = new BitsXmlReader(xmlBitsFile, this.bookPartNodePath, this);         
+            Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
+          
+            //map Values from XML to existing TOC-structure
+            DocumentManager manager = new DocumentManager(ff, structureTypeBits, structureTypePdf, imageFiles, this.prefs, this);
+            ff = manager.mapBookToMets(book);
+
             // Book book = reader.readXml(publicationMetadata, publicationPersons, elementMetadata, elementPersons, elementFpagePath, elementLPagePath);
             process.writeMetadataFile(ff);
-        } catch (IllegalArgumentException | IOException | SwapException | DAOException ex) {
-
-        } catch (PreferencesException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        } // catch (PDFWriteException e1) {
-             // TODO Auto-generated catch block
-//             e1.printStackTrace();
-//              } 
-        catch (ReadException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        } catch (MetadataTypeNotAllowedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        } catch (TypeNotAllowedAsChildException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
+        } catch (IllegalArgumentException | IOException | SwapException | DAOException |PreferencesException |ReadException| WriteException | JDOMException  ex) {
+            log("PdfBookInterchangeConvert: Error while executing the Plugin!",LogType.ERROR,false);
+            log.error("PdfBookInterchangeConvert: Error while executing the Plugin! ProcessID:" + this.processId, ex);
+            return PluginReturnValue.ERROR;
+            
         } 
-        
-//        catch (TypeNotAllowedForParentException e) {
-//            // TODO Auto-generated catch block
-//            e.printStackTrace();
-//        } 
-        catch (WriteException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
         log("PdfBookInterchangeConvert step plugin executed", LogType.INFO);
         if (!successful) {
             return PluginReturnValue.ERROR;
