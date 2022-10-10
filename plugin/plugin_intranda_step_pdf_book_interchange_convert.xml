@@ -31,7 +31,7 @@
 			<metadata value="./book/book-meta/isbn" field="ISBN" />
 
 			<!-- person information is read from xpath expressions in 'firstname' 
-				and 'lastname' fields separately the ruleset type to be used for the person 
+				and 'lastname' fields separately; the ruleset type to be used for the person 
 				is defined as 'role' -->
 			<person
 				xpathNode="//book-meta/contrib-group/contrib/name[@content-type='author']"
@@ -42,10 +42,10 @@
 		</publicationMapping>
 
 		<!-- mapping for the metadata that belongs to the created structure elements 
-			the Attribute xpathNode should be used to specify the xml-elements that have 
-			the wanted metadata in the case of bitsxml-files this could be //book-part-meta 
-			for example the xpath-expression of the metadata and person elements must 
-			should be relative to this selected node. This means they have to start with 
+			the attribute xpathNode should be used to specify the xml-elements that have 
+			the wanted metadata in the case of bitsxml-files this could be "book-part-meta". 
+			the xpath-expression of the metadata and person elements must 
+			be relative to this selected node. This means they have to start with 
 			a "." -->
 
 		<elementMapping
@@ -58,9 +58,9 @@
 				field="TitleDocSub1" />
 			<!-- <metadata value="./abc/def/ghi/jkl" field="DocLanguage" /> -->
 			<!-- person information is read from xpath expressions in 'firstname' 
-				and 'lastname' note that the xpath expressions in firstname and lastname 
+				and 'lastname'. note that the xpath expressions in firstname and lastname 
 				are relative to the element selected by the path specified by the attribute 
-				xpathNode the ruleset type to be used for the person is defined as 'role' -->
+				xpathNode. the ruleset type to be used for the person is defined by the attribute 'role' -->
 			<person xpathNode=".//name[@content-type='author']"
 				firstname="./given-names" lastname="./surname" role="Author" />
 			<person xpathNode=".//name[@content-type='editor']"
