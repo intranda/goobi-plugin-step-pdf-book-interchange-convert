@@ -2,9 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>io.goobi.workflow.plugin</groupId>
-    <artifactId>plugin-step-pdf_book_interchange_convert</artifactId>
+    <artifactId>plugin-step-pdf-book-interchange-convert</artifactId>
     <version>24.03-SNAPSHOT</version>
   </parent>
-  <artifactId>plugin-step-pdf_book_interchange_convert-base</artifactId>
+  <artifactId>plugin-step-pdf-book-interchange-convert-base</artifactId>
   <packaging>jar</packaging>
 </project>

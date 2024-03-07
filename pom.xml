@@ -7,7 +7,7 @@
     <relativePath />
   </parent>
   <groupId>io.goobi.workflow.plugin</groupId>
-  <artifactId>plugin-step-pdf_book_interchange_convert</artifactId>
+  <artifactId>plugin-step-pdf-book-interchange-convert</artifactId>
   <packaging>pom</packaging>
   <modules>
     <module>module-base</module>
