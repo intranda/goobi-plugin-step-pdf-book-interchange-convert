@@ -13,7 +13,7 @@
 
 		<!-- type of the structure elements to be created from the Book Interchange 
 			Format or Type of the elements that had their metadata updated -->
-		<structureTypeBits>Retpahc</structureTypeBits>
+		<structureTypeBits>Part</structureTypeBits>
 
 		<!-- mapping for the metadata that belongs to the publication aka topstruct 
 			(e.g. Monograph or Volume) -->
