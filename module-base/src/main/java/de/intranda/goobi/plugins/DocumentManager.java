@@ -1,6 +1,5 @@
 package de.intranda.goobi.plugins;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import org.goobi.beans.Process;
 import org.goobi.production.enums.LogType;
 
 import de.intranda.goobi.plugins.model.Book;
@@ -18,13 +16,8 @@ import de.intranda.goobi.plugins.model.BookPart;
 import de.intranda.goobi.plugins.model.MetadataElement;
 import de.intranda.goobi.plugins.model.ParsedMetadata;
 import de.intranda.goobi.plugins.model.ParsedPerson;
-import de.sub.goobi.helper.StorageProvider;
-import de.sub.goobi.helper.StorageProviderInterface;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.NonNull;
-
 import ugh.dl.ContentFile;
 import ugh.dl.DigitalDocument;
 import ugh.dl.DocStruct;
@@ -45,7 +38,6 @@ public class DocumentManager {
     private DigitalDocument digitalDocument;
     private DocStruct logical;
     private DocStruct physical;
-    private Process process;
     private Prefs prefs;
     private DocStructType bitsChildType;
     private DocStructType pdfChildType;
@@ -59,14 +51,14 @@ public class DocumentManager {
         this.plugin = plugin;
         this.imageFiles = imageFiles;
         Collections.sort(this.imageFiles);
-       
-            this.fileformat = fileformat;
-            this.prefs = prefs;
-            this.bitsChildType = this.prefs.getDocStrctTypeByName(bitsChildType);
-            this.pdfChildType = this.prefs.getDocStrctTypeByName(pdfChildType);
-            this.digitalDocument = this.fileformat.getDigitalDocument();
-            this.logical = this.digitalDocument.getLogicalDocStruct();
-            this.physical = this.digitalDocument.getPhysicalDocStruct();
+
+        this.fileformat = fileformat;
+        this.prefs = prefs;
+        this.bitsChildType = this.prefs.getDocStrctTypeByName(bitsChildType);
+        this.pdfChildType = this.prefs.getDocStrctTypeByName(pdfChildType);
+        this.digitalDocument = this.fileformat.getDigitalDocument();
+        this.logical = this.digitalDocument.getLogicalDocStruct();
+        this.physical = this.digitalDocument.getPhysicalDocStruct();
 
     }
 
@@ -74,8 +66,8 @@ public class DocumentManager {
         addMetadata(logical, book.getMetadata(), true);
         List<DocStruct> children = logical.getAllChildrenByTypeAndMetadataType(pdfChildType.getName(), "*");
         populatePageMapping(children, null);
-        if (children==null || pageMapping.isEmpty()) {
-            plugin.log("No Element with physical pages detected", LogType.INFO, false);
+        if (children == null || pageMapping.isEmpty()) {
+            plugin.log("No element with physical pages detected", LogType.INFO, false);
             createElementsAddMetadata(logical, book.getBookParts(), true);
         } else {
             MapToOrCreateElement(logical, book.getBookParts());
@@ -84,8 +76,9 @@ public class DocumentManager {
     }
 
     private void populatePageMapping(List<DocStruct> children, HashMap<Integer, List<DocstructPageMapping>> PageMapping) {
-        if (children == null)
+        if (children == null) {
             return;
+        }
         for (DocStruct child : children) {
             List<Reference> refs = child.getAllToReferences("logical_physical");
             List<Integer> pageNumbers = new ArrayList<Integer>();
@@ -120,10 +113,11 @@ public class DocumentManager {
                 linkImageFiles(child, bookPart.getFirstPage(), bookPart.getLastPage());
                 ds.addChild(child);
             } catch (TypeNotAllowedForParentException ex) {
-                plugin.log("Type not allowed for parent. Couldn't create DocStruct. Please update the rule set!", LogType.ERROR, false);
+                plugin.log("Type not allowed for parent. Couldn't create structure element. Please update the ruleset.", LogType.ERROR, false);
                 continue;
             } catch (TypeNotAllowedAsChildException e) {
-                plugin.log("Type not allowed as child. Couldn't add created DocStruct to parent element. Please update the rule set!", LogType.ERROR,
+                plugin.log("Type not allowed as child. Couldn't add created structure element to parent element. Please update the ruleset.",
+                        LogType.ERROR,
                         false);
                 continue;
             }
@@ -145,8 +139,8 @@ public class DocumentManager {
                 }
             }
             if (ds == null) {
-                plugin.log("Couldn't find matching docstruct for element with start page: " + bookPart.getFirstPage() + " and last page: "
-                        + bookPart.getLastPage() + " .New Element will be added to topStruct", LogType.INFO, false);
+                plugin.log("Could not find matching structure element for element with start page '" + bookPart.getFirstPage() + "' and last page '"
+                        + bookPart.getLastPage() + "'. New element will be added to structure element.", LogType.INFO, false);
                 ArrayList<BookPart> unmatchedBookPart = new ArrayList<BookPart>();
                 unmatchedBookPart.add(bookPart);
                 createElementsAddMetadata(parent, unmatchedBookPart, false);
@@ -172,7 +166,9 @@ public class DocumentManager {
                     if (md == null) {
                         md = new Metadata(prefs.getMetadataTypeByName(element.getMets()));
                     } else {
-                        plugin.log("The following " + element.getMets() + " was overriden: " + md.getValue() + " with: " + element.getValue(),
+                        plugin.log(
+                                "The element '" + element.getMets() + "' with value '" + md.getValue() + "' was updated with '" + element.getValue()
+                                        + "'.",
                                 LogType.INFO, false);
                     }
                     md.setValue(element.getValue());
@@ -185,7 +181,8 @@ public class DocumentManager {
                 }
             } catch (MetadataTypeNotAllowedException ex) {
                 plugin.log(
-                        "Couldn't add metadata of Type " + element.getMets() + " to Structure! Please update the ruleset or the configuration file! ",
+                        "Could not add metadata of type '" + element.getMets()
+                                + "' to structure element. Please update the ruleset or the configuration file.",
                         LogType.ERROR, false);
             }
         }
@@ -198,7 +195,8 @@ public class DocumentManager {
                 ds.addPerson(p);
             } catch (Exception ex) {
                 plugin.log(
-                        "Couldn't add Person with role " + person.getMets() + " to Structure! Please update the ruleset or the configuration file! ",
+                        "Could not add person with role '" + person.getMets()
+                                + "' to structure element. Please update the ruleset or the configuration file.",
                         LogType.ERROR, false);
             }
         }
@@ -248,10 +246,10 @@ public class DocumentManager {
             dsPage.addContentFile(cf);
             return true;
         } catch (TypeNotAllowedAsChildException | TypeNotAllowedForParentException e) {
-            plugin.log("Error creating page - type not allowed as child/for parent", LogType.ERROR, false);
+            plugin.log("Error creating page. Type not allowed as child/for parent.", LogType.ERROR, false);
             return false;
         } catch (MetadataTypeNotAllowedException e) {
-            plugin.log("Error creating page - Metadata type not allowed", LogType.ERROR, false);
+            plugin.log("Error creating page. Metadata type not allowed.", LogType.ERROR, false);
             return false;
         }
     }
