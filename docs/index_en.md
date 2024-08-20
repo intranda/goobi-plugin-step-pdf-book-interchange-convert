@@ -1,7 +1,6 @@
 ---
 title: Data import for Book Interchange files
 identifier: intranda_step_pdf_book_interchange_convert
-github: https://github.com/intranda/plugin-step-pdf-book-interchange-convert
 description: Step plugin for processing Book Interchange XML files to enrich the structure and metadata of existing Goobi processes
 published: true
 ---
@@ -36,14 +35,11 @@ The plugin is configured in the file `plugin_intranda_step_pdf_book_interchange_
 
 {{CONFIG_DESCRIPTION_PROJECT_STEP}}
 
-
-
 Parameter               | Explanation
 ------------------------|-----------
 `structureTypePdf`      | Naming of the structure type of the elements that were created by the plugin previously used in the workflow for PDF extraction.
 `structureTypeBits`      | Naming of the structure type for the elements that the book interchange plugin is to generate.
 `publicationMapping`      | Area for defining the publication metadata to be enriched within the METS file. In each case, the data from the XML file is specified via a combination using xPath expressions and the metadata type from the ruleset.
 `elementMapping`      | Area for defining the structural data that is to be enriched or generated within the METS file. In each case, the data from the XML file is specified via a combination using xPath expressions and the metadata type from the rule set.
-
 
 For easier commissioning, a file with the name `ruleset.xml` can be found in the `install` folder of the plugin, which serves as a reference ruleset for the configuration file listed here.
