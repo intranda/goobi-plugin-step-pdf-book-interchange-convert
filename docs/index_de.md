@@ -3,6 +3,10 @@ title: Datenimport für Book Interchange Dateien
 identifier: intranda_step_pdf_book_interchange_convert
 description: Step Plugin für die Verarbeitung von Book Interchange XML-Dateien zur Anreicherung von Struktur und Metadaten bestehender Goobi Vorgänge
 published: true
+keywords:
+    - Goobi workflow
+    - Plugin
+    - Step Plugin
 ---
 
 ## Einführung
