@@ -30,7 +30,7 @@ Für die Verwendung des Plugins muss dieses in einem Arbeitsschritt ausgewählt 
 
 
 ## Überblick und Funktionsweise
-In dem hier gezeigten Workflow wurde zunächst eine PDF-Datei zusammen mit einer Book-Interchange-Datei eingespielt. Die PDF-Datei wurden im Verlauf des Workflows zu Bildern konvertiert, die im `master`-Ordner gespeichert wurden. Die PDF-Datei wurde im Workflow automatisch in den `import`-Ordner verschoben. Die Book-Interchange-Datei wurde in den `source`-Ordner verschoben. Anschließend hat das Book-Interchange-Plugin die bereits vom PDF-Extraction-Plugin erzeugten Strukturdaten, die aus der PDF-Datei gelesen werden konnten, mit den Informationen aus der Book-Interchange-Datei angereichert. 
+In dem hier gezeigten Workflow wurde zunächst eine PDF-Datei zusammen mit einer Book-Interchange-Datei eingespielt. Die PDF-Datei wurde im Verlauf des Workflows zu Bildern konvertiert, die im `master`-Ordner gespeichert wurden. Die PDF-Datei wurde im Workflow automatisch in den `import`-Ordner verschoben. Die Book-Interchange-Datei wurde in den `source`-Ordner verschoben. Anschließend hat das Book-Interchange-Plugin die bereits vom PDF-Extraction-Plugin erzeugten Strukturdaten, die aus der PDF-Datei gelesen werden konnten, mit den Informationen aus der Book-Interchange-Datei angereichert. 
 
 
 ## Konfiguration
@@ -47,4 +47,4 @@ Parameter               | Erläuterung
 `publicationMapping`      | Bereich für die Definition der Publikationsmetadaten, die innerhalb der METS-Datei angereichert werden sollen. Hierbei sind jeweils über eine Kombination die Daten aus der XML-Datei mittels xPath-Ausdrücken und der Metadatentyp aus dem Regelsatz angegeben.
 `elementMapping`      | Bereich für die Definition der Strukturdaten, die innerhalb der METS-Datei angereichert oder erzeugt werden sollen. Hierbei sind jeweils über eine Kombination die Daten aus der XML-Datei mittels xPath-Ausdrücken und der Metadatentyp aus dem Regelsatz angegeben.
 
-Für eine einfachere Inbetriebnahme befindet sich in `install`-Ordner des Plugins eine Datei mit dem Namen `ruleset.xml` die als Referenz-Regelsatz zu der hier aufgeführte Konfigurationsdatei passt.
+Für eine einfachere Inbetriebnahme befindet sich im `install`-Ordner des Plugins eine Datei mit dem Namen `ruleset.xml` die als Referenz-Regelsatz zu der hier aufgeführte Konfigurationsdatei passt.
